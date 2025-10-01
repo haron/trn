@@ -1,6 +1,6 @@
 [project]
 name = "trn"
-version = "0.1.9"
+version = "0.1.11"
 description = "CLI tool to translate text with LLMs"
 authors = [
   { name="Alexander Ryabov", email="alex.ryabov@gmail.com" },

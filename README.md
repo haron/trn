@@ -74,17 +74,28 @@ Set environment variables for convenience:
     # optionally:
     export TRN_MODEL=gpt-4o-mini
 
+## Development
+
+Run `trn` with local changes:
+
+    uv run trn ...
+
+Run tests:
+
+    make test
+
 ### All the options
 
 ```
+> trn --help
 > trn --help
 usage: trn [-h] -t TO_LANGUAGE [-m MODEL] [-p PROMPT] [-a PROMPT_ADD] [-w WRAP]
            [-v] [-d]
            [text ...]
 
 positional arguments:
-  text                  Text to translate, or URL, or path to file (default:
-                        None)
+  text                  Text to translate, or URL(s), or path to file(s)
+                        (default: None)
 
 options:
   -h, --help            show this help message and exit
@@ -92,7 +103,41 @@ options:
                         Target language for translation [env var:
                         TRN_TO_LANGUAGE] (default: None)
   -m, --model MODEL     LLM to use (run 'uvx llm models' for available models)
-                        [env var: TRN_MODEL] (default: gemini-2.5-flash)
+                        [env var: TRN_MODEL] (default: gemini-flash-latest)
+  -p, --prompt PROMPT   Custom prompt for translation [env var: TRN_PROMPT]
+                        (default: Translate the text (it can be in any language)
+                        into {to_language}. Don't explain that the output is a
+                        translation. Tell me if you don't recognize
+                        '{to_language}' language. If there is a file attached,
+                        translate the contents of the file. {prompt_add})
+  -a, --prompt-add PROMPT_ADD
+                        Text to append to the prompt [env var: TRN_PROMPT_ADD]
+                        (default: )
+  -w, --wrap WRAP       Wrap output at N chars (use 0 to disable wrapping) [env
+                        var: TRN_WRAP] (default: 80)
+  -v, --verbose         Enable verbose output [env var: TRN_VERBOSE] (default:
+                        False)
+  -d, --debug           Enable debug output [env var: TRN_DEBUG] (default:
+                        False)
+
+ In general, command-line values override environment variables which override
+defaults.
+```
+usage: trn [-h] -t TO_LANGUAGE [-m MODEL] [-p PROMPT] [-a PROMPT_ADD] [-w WRAP]
+           [-v] [-d]
+           [text ...]
+
+positional arguments:
+  text                  Text to translate, or URL(s), or path to file(s)
+                        (default: None)
+
+options:
+  -h, --help            show this help message and exit
+  -t, --to-language TO_LANGUAGE
+                        Target language for translation [env var:
+                        TRN_TO_LANGUAGE] (default: None)
+  -m, --model MODEL     LLM to use (run 'uvx llm models' for available models)
+                        [env var: TRN_MODEL] (default: gemini-flash-latest)
   -p, --prompt PROMPT   Custom prompt for translation [env var: TRN_PROMPT]
                         (default: Translate the text (it can be in any language)
                         into {to_language}. Don't explain that the output is a

@@ -17,7 +17,7 @@ translate_prompt = "Translate the text (it can be in any language) into {to_lang
 
 def translate(
     text: Optional[str] = None,
-    file: Optional[str] = None,
+    files: list[Path] = [],
     *,
     model: str,
     to_language: str,
@@ -26,8 +26,8 @@ def translate(
     width: int = 80,
 ):
     system_prompt = translate_prompt.format(to_language=to_language.capitalize(), prompt_add=prompt_add)
-    attachments = [llm.Attachment(path=file)] if file else []
-    logging.debug(f"{text=}, {attachments=}, {model=}, {to_language=}, {system_prompt=}")
+    attachments = [llm.Attachment(path=str(f)) for f in files]
+    logging.debug(f"{text=}, {files=}, {attachments=}, {model=}, {to_language=}, {system_prompt=}")
     response = llm.get_model(model).prompt(text, attachments=attachments, system=system_prompt)
     if width > 0:
         print_wrapped(response, width=width)
@@ -90,12 +90,36 @@ def readability(url: str) -> str:
     return html2text(curl_cffi.get(url, impersonate="chrome").text)
 
 
-def get_input_data(args) -> tuple[Optional[str], Optional[str]]:
+def die(msg: str) -> None:
+    logging.error(msg)
+    sys.exit(1)
+
+
+def get_input_data(args) -> tuple[Optional[str], list[Path]]:
     text = None
-    file = None
+    files = []
 
     if args.text:
-        text = " ".join(args.text)
+        first_arg = args.text[0]
+        if is_file(first_arg):
+            # First arg is a file, treat all args as files
+            for arg in args.text:
+                path = Path(arg)
+                if not path.exists():
+                    die(f"Error: file not found: {arg}")
+                logging.warning(f"Attaching file {arg}")
+                files.append(path)
+        elif is_url(first_arg):
+            # First arg is a URL, treat all args as URLs
+            text_parts = []
+            for arg in args.text:
+                if not is_url(arg):
+                    die(f"Not a URL: {arg}")
+                logging.warning(f"Translating web page {arg}")
+                text_parts.append(readability(arg))
+            text = "\n\n".join(text_parts)
+        else:
+            text = " ".join(args.text)
     elif has_stdin_data():
         logging.warning("Using text from standard input.")
         text = sys.stdin.read()
@@ -103,36 +127,31 @@ def get_input_data(args) -> tuple[Optional[str], Optional[str]]:
         logging.warning("Using text from clipboard.")
         text = pyperclip.paste()
 
-    text = text.strip()
+    if text:
+        text = text.strip()
 
-    if not text:
-        logging.error("Error: empty text! Please give me some text via stdin, command line arguments or in a clipboard.")
-        sys.exit(1)
+    if not text and not files:
+        die("Error: empty text! Please give me some text via stdin, command line arguments or in a clipboard.")
 
-    if args.text and text:
-        if is_url(text):
-            logging.warning(f"Translating web page {text}")
-            text = readability(text)
-        elif is_file(text):
-            logging.warning(f"Translating file {text}")
-            file = text
-            text = None
-
-    return text, file
+    return text, files
 
 
 def main():
     parser = configargparse.ArgumentParser(formatter_class=lambda prog: configargparse.ArgumentDefaultsHelpFormatter(prog, width=80))
     parser.add_argument("-t", "--to-language", env_var="TRN_TO_LANGUAGE", required=True, help="Target language for translation")
     parser.add_argument(
-        "-m", "--model", env_var="TRN_MODEL", help="LLM to use (run 'uvx llm models' for available models)", default="gemini-2.5-flash"
+        "-m",
+        "--model",
+        env_var="TRN_MODEL",
+        help="LLM to use (run 'uvx llm models' for available models)",
+        default="gemini-3-flash-preview",
     )
     parser.add_argument("-p", "--prompt", env_var="TRN_PROMPT", help="Custom prompt for translation", default=translate_prompt)
     parser.add_argument("-a", "--prompt-add", env_var="TRN_PROMPT_ADD", help="Text to append to the prompt", default="")
     parser.add_argument("-w", "--wrap", env_var="TRN_WRAP", type=int, default=80, help="Wrap output at N chars (use 0 to disable wrapping)")
     parser.add_argument("-v", "--verbose", env_var="TRN_VERBOSE", action="store_true", help="Enable verbose output")
     parser.add_argument("-d", "--debug", env_var="TRN_DEBUG", action="store_true", help="Enable debug output")
-    parser.add_argument("text", nargs="*", help="Text to translate, or URL, or path to file")
+    parser.add_argument("text", nargs="*", help="Text to translate, or URL(s), or path to file(s)")
     args = parser.parse_args()
 
     log_level = logging.ERROR
@@ -147,10 +166,10 @@ def main():
 
     logging.debug(f"Started with {args=}")
 
-    text, file = get_input_data(args)
+    text, files = get_input_data(args)
     translate(
         text=text,
-        file=file,
+        files=files,
         model=args.model,
         to_language=args.to_language,
         system_prompt=args.prompt,

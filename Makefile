@@ -27,7 +27,7 @@ clean:
 
 linter: format
 	uv sync --no-dev -q
-	uv run ty check --respect-ignore-files **/*.py
+	uv run ty check --respect-ignore-files trn/*.py
 	uv run ruff check -q --ignore F401 **/*.py
 
 format: sync
@@ -38,6 +38,7 @@ safety:
 	uv run safety scan -o bare
 
 readme:
-	sed -i '' '/^usage: trn /,$$d' README.md
+	gsed -i'' '/^> trn --help/,$$d' README.md
+	echo '> trn --help' >> README.md
 	uv run -q --refresh --with . trn --help >> README.md
 	echo '```' >> README.md
